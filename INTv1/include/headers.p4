@@ -32,6 +32,8 @@ header ipv4_t {
     ip4Addr_t dstAddr; 
 }
 
+// This header goes right at the start of the variable part of the IPv4 Header.
+// It is followed by the INT headers, which logically form part of the options data.
 header ipv4_option_t {
     bit<1> copied;
     bit<2> class;
@@ -39,14 +41,19 @@ header ipv4_option_t {
     bit<8> length;
 }
 
+// 2 Bytes.
 header int_md_t {
+    // Remove these, if you decide to not support IPv4 Option packets.
     bit<5> originalOptionValue;
     bit<4> originalIhl;
+
     header_count_t countHeaders;
 }
 
+// 4 Bytes
 header int_data_t {
     queue_depth_t queueDepth;
+    bit<16> padding;
 }
 
 /*
@@ -63,10 +70,10 @@ struct parser_metadata_t {
 
 struct switch_metadata_t {
     // Switch ID for this switch. Extracted from `switchInfo` table.
-    bit<8> switchId;
+    bit<4> switchId;
     
     // The INT Role {Source, Transit, Sink} for this Switch. Extracted from `switchInfo` table.
-    bit<8> switchINTRole;
+    bit<2> switchINTRole;
 }
 
 struct metadata {

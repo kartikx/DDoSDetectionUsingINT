@@ -3,6 +3,8 @@
 
 #include "include/headers.p4"
 #include "include/parsers.p4"
+#include "include/constants.p4"
+#include "include/INTprocessing.p4"
 
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
     apply {}
@@ -17,12 +19,13 @@ control MyIngress(inout headers hdr,
 
     /*
     This is a switch, and not a router.
-    Hence, don't decrement TTL or modify MAC addresses.
+    Hence, don't decrement TTL or modify MAC addresses. Simply forward packet.
     */
     action forward(bit<9> egressPort) {
         standard_metadata.egress_spec = egressPort;
     }
 
+    // Stores the Egress Port for a given Destination IP.
     table ipv4forwarding {
         key = {
             hdr.ipv4.dstAddr : exact;
@@ -35,135 +38,19 @@ control MyIngress(inout headers hdr,
         size = 256;
     }
 
-    apply {
-        ipv4forwarding.apply();
-    }
-}
-
-/*
-The Source Switch is required to take a packet and add the INT-MD header
-and it's own Metadata.
-
-The packets that reach here definitely have an IPv4 Header.
-
-Possible errors:
-1. INT-MD header might already exist.
-2. There might not be any space to add metadata.
-*/
-control SourceSwitchProcessing(inout headers hdr,
-                inout metadata meta,
-                inout standard_metadata_t standard_metadata) {
-    apply {
-        log_msg("Source");
-
-        // Source shouldn't receive a packet which already has int_md set.
-        // TODO look for a way to raise an error.
-        if (hdr.int_md.isValid()) {
-            log_msg("[ERROR] Source encountered INT_MD header");
-            return;
-        }
-
-        /*
-        Set the IPv4 Options to indicate that there are INT Headers present in the packet.
-        This allows transit nodes to expect INT Headers and parse them appropriately.
-
-        TODO: Read into applications of IPV4Option to see if I need to set length of options etc.
-        because I don't need that from my implementation pov.
-        Hence, I would only need to cache the option type.
-
-        TODO: Allow packets with already existing IPv4Options header to flow into source?
-        See if this would be a necessity, or whether I can get by with packets not having any.
-        */
-
-        hdr.ipv4_option.setValid();
-        hdr.ipv4_option.option = INT_OPTION_TYPE;
-
-        // Increase IHL length, to indicate that there are options.
-        hdr.ipv4.ihl = hdr.ipv4.ihl + 1;
-
-        // Set the INT_MD Header valid, and set the count.
-        hdr.int_md.setValid();
-        hdr.int_md.countHeaders = 1;
-
-        // Set the first INT_DATA header valid, and set the data values.
-        hdr.int_data[0].setValid();
-        hdr.int_data[0].queueDepth = (queue_depth_t) standard_metadata.deq_qdepth;
-    }
-}
-
-/*
-Transit Switches are only required to add the data (to an already existing array
-of data) and increase the count.
-
-Possible errors:
-1. INT_MD might not exist.
-2. METADATA limit may have been reached (fail silently).
-*/
-control TransitSwitchProcessing(inout headers hdr,
-                 inout metadata meta,
-                 inout standard_metadata_t standard_metadata) {
-    apply {
-        log_msg("Transit");
-
-        if (!hdr.int_md.isValid()) {
-            log_msg("[ERROR] Transit node couldn't find INT_MD Header");
-            return;
-        }
-
-        header_count_t numHeaders = hdr.int_md.countHeaders; 
-
-        if (numHeaders == MAX_INT_DATA) {
-            log_msg("[NOTE] Maximum INT_DATA limit reached");
-            return;
-        }
-
-        // Should I increment IHL here?
-
-        // Can safely index into array.
-        hdr.int_data[numHeaders].setValid();
-        hdr.int_data[numHeaders].queueDepth = (queue_depth_t) standard_metadata.deq_qdepth;
-
-        hdr.int_md.countHeaders = numHeaders + 1;
-    }
-}
-
-/*
-For now, I will skip the clone parts. Sink is required to just
-restore IPv4 Options and invalidate the INT_MD.
-
-*/
-control SinkSwitchProcessing(inout headers hdr,
-                 inout metadata meta,
-                 inout standard_metadata_t standard_metadata) {
-    apply {
-        log_msg("Sink");
-
-        if (!hdr.int_md.isValid()) {
-            log_msg("[ERROR] Sink node couldn't find INT_MD Header");
-            return;
-        }
-
-        log_msg("Num headers: {}", {hdr.int_md.countHeaders});
-
-        // TODO this should actually be a restoration by consulting int_md.
-        hdr.ipv4.ihl = 5;
-        hdr.ipv4_option.setInvalid();
-        hdr.int_md.setInvalid();
-
-        // How to do this? Needs a loop. Could set a flag and handle in the deparser maybe.
-        hdr.int_data[0].setInvalid();
-        hdr.int_data[1].setInvalid();
-    }
-}
-
-control MyEgress(inout headers hdr,
-                 inout metadata meta,
-                 inout standard_metadata_t standard_metadata) {
+    // Serves as the static key for SwitchInfo table, since it has only a single row to index into.
     bit switchInfoTableKey = 0;
-                     
+    
+    // Read the Switch information from Table, and populate the Metadata using it.
     action populateSwitchInfo(bit<4> switchId, bit<2> role) {
-        meta.switch_metadata.switchId = (bit<8>) switchId;
-        meta.switch_metadata.switchINTRole = (bit<8>) role;
+        meta.switch_metadata.switchId = switchId;
+        meta.switch_metadata.switchINTRole = role;
+    }
+
+    // In the event of Table miss, populate Metadata with default values.
+    action populateSwitchInfoDefault() {
+        meta.switch_metadata.switchId = 0;
+        meta.switch_metadata.switchINTRole = INTRole.Undefined;
     }
 
     table SwitchInfo {
@@ -172,30 +59,74 @@ control MyEgress(inout headers hdr,
         }
         actions = {
             populateSwitchInfo;
+            populateSwitchInfoDefault;
         }
+        default_action = populateSwitchInfoDefault;
         size = 1;
     }
 
-    SourceSwitchProcessing()  sourceProcessingInstance;
-    TransitSwitchProcessing() transitProcessingInstance;
-    SinkSwitchProcessing()    sinkProcessingInstance;
+    apply {
+        // Store information about the Switch in Metadata.
+        SwitchInfo.apply();
+
+        // Forward the packet based on Destination IP Address.
+        ipv4forwarding.apply();
+
+        // On the Sink Switch, we clone IPv4 packets towards Collector.
+        if (meta.switch_metadata.switchINTRole == INTRole.Sink && hdr.ipv4.isValid()) {
+            clone3(CloneType.I2E, SinkSessionID, meta); 
+        }
+    }
+}
+
+control MyEgress(inout headers hdr,
+                 inout metadata meta,
+                 inout standard_metadata_t standard_metadata) {
+    SourceSwitchProcessing()    sourceProcessingInstance;
+    TransitSwitchProcessing()   transitProcessingInstance;
+    SinkSwitchProcessing()      sinkProcessingInstance;
+    SinkSwitchCloneProcessing() sinkCloneProcessingInstance;
 
     apply {
-        // Get the INT role for this switch.
-        // For Switches not involved in INT, the search will miss.
-        if(SwitchInfo.apply().hit && hdr.ipv4.isValid()) {
-            log_msg("Switch ID: {}, SwitchRole: {}", {meta.switch_metadata.switchId, meta.switch_metadata.switchINTRole});
-            // TODO replace with enum for readability.
-            if (meta.switch_metadata.switchINTRole == 0) {
-                sourceProcessingInstance.apply(hdr, meta, standard_metadata);
+        /**
+          * INT Processing to be applied only on IPv4 Packets,
+          * since we use IPv4 Options to encapsulate INT data.
+          */
+        if(hdr.ipv4.isValid()) {
+            // Normal newly arrived packet.
+            if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_NORMAL) {
+                /**
+                    * Information about the Switch INT Role is already stored into metadata on Ingress.
+                    * We use it here to delegate responsibility to the correct processing subroutine.
+                    */
+                log_msg("Switch ID: {}, SwitchRole: {}", {meta.switch_metadata.switchId, meta.switch_metadata.switchINTRole});
+                if (meta.switch_metadata.switchINTRole == INTRole.Source) {
+                    sourceProcessingInstance.apply(hdr, meta, standard_metadata);
+                }
+                else if (meta.switch_metadata.switchINTRole == INTRole.Transit) {
+                    transitProcessingInstance.apply(hdr, meta, standard_metadata);
+                }
+                else if (meta.switch_metadata.switchINTRole == INTRole.Sink) {
+                    sinkProcessingInstance.apply(hdr, meta, standard_metadata);
+                } else {
+                    // Switch not involved in INT.
+                }
             }
-            else if (meta.switch_metadata.switchINTRole == 1) {
-                transitProcessingInstance.apply(hdr, meta, standard_metadata);
+            // Packet was cloned during Ingress.
+            else if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_INGRESS_CLONE) {
+                if (meta.switch_metadata.switchINTRole == INTRole.Sink) {
+                    sinkCloneProcessingInstance.apply(hdr, meta, standard_metadata);
+                } else {
+                    // This should not have happened.
+                    log_msg("Received Ingress Cloned packet on role: {}", {meta.switch_metadata.switchINTRole});
+                    // Doubt can I even do this on Egress?
+                    mark_to_drop(standard_metadata);
+                }
             }
-            else if (meta.switch_metadata.switchINTRole == 2) {
-                sinkProcessingInstance.apply(hdr, meta, standard_metadata);
-            } else {
-                // Switch not involved in INT.
+            // Received unexpected packet.
+            else {
+                log_msg("Received packet with unexpected instance type: {}", {standard_metadata.instance_type});
+                mark_to_drop(standard_metadata);
             }
         }
     }

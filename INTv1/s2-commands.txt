@@ -1,0 +1,3 @@
+table_add SwitchInfo populateSwitchInfo 0 => 2 1
+table_add ipv4forwarding forward 10.0.0.1 => 1
+table_add ipv4forwarding forward 10.0.0.2 => 2

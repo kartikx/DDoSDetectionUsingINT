@@ -43,13 +43,13 @@ control MyIngress(inout headers hdr,
     
     // Read the Switch information from Table, and populate the Metadata using it.
     action populateSwitchInfo(bit<4> switchId, bit<2> role) {
-        meta.switch_metadata.switchId = switchId;
+        meta.switch_metadata.switchId = (switch_id_t) switchId;
         meta.switch_metadata.switchINTRole = role;
     }
 
     // In the event of Table miss, populate Metadata with default values.
     action populateSwitchInfoDefault() {
-        meta.switch_metadata.switchId = 0;
+        meta.switch_metadata.switchId = (switch_id_t) 0;
         meta.switch_metadata.switchINTRole = INTRole.Undefined;
     }
 
@@ -72,9 +72,9 @@ control MyIngress(inout headers hdr,
         // Forward the packet based on Destination IP Address.
         ipv4forwarding.apply();
 
-        // On the Sink Switch, we clone IPv4 packets towards Collector.
-        if (meta.switch_metadata.switchINTRole == INTRole.Sink && hdr.ipv4.isValid()) {
-            clone3(CloneType.I2E, SinkSessionID, meta); 
+        // On the Sink Switch, we clone INT packets towards Collector.
+        if (meta.switch_metadata.switchINTRole == INTRole.Sink && hdr.int_md.isValid()) {
+            clone3(CloneType.I2E, SinkSessionID, meta);
         }
     }
 }

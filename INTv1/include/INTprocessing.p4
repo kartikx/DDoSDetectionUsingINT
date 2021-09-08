@@ -77,7 +77,11 @@ control SourceSwitchProcessing(inout headers hdr,
 
             // Set the first INT_DATA header valid, and set the data values.
             hdr.int_data[0].setValid();
-            hdr.int_data[0].queueDepth = (queue_depth_t) standard_metadata.deq_qdepth;
+            hdr.int_data[0].switchId   = (switch_id_t)        meta.switch_metadata.switchId;
+            hdr.int_data[0].queueDepth = (queue_depth_t)      standard_metadata.deq_qdepth;
+            hdr.int_data[0].queueTime  = (queue_time_delta_t) standard_metadata.deq_timedelta;
+
+            log_msg("Switch: {}, Depth: {}, Time: {}", {hdr.int_data[0].switchId, hdr.int_data[0].queueDepth, hdr.int_data[0].queueTime});
         }
     }
 }
@@ -124,9 +128,13 @@ control TransitSwitchProcessing(inout headers hdr,
 
         // Can safely index into array.
         hdr.int_data[numHeaders].setValid();
-        hdr.int_data[numHeaders].queueDepth = (queue_depth_t) standard_metadata.deq_qdepth;
+        hdr.int_data[numHeaders].switchId   = (switch_id_t)        meta.switch_metadata.switchId;
+        hdr.int_data[numHeaders].queueDepth = (queue_depth_t)      standard_metadata.deq_qdepth;
+        hdr.int_data[numHeaders].queueTime  = (queue_time_delta_t) standard_metadata.deq_timedelta;
 
         hdr.int_md.countHeaders = numHeaders + 1;
+
+        log_msg("Switch: {}, Depth: {}, Time: {}", {hdr.int_data[numHeaders].switchId, hdr.int_data[numHeaders].queueDepth,hdr.int_data[numHeaders].queueTime});
     }
 }
 
@@ -175,6 +183,8 @@ control SinkSwitchCloneProcessing(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
     apply {
+        // Currently pass the entire processed packet as it is.
+        
         // hdr.ethernet.setInvalid();
         // hdr.ipv4.setInvalid();
         // hdr.ipv4_option.setInvalid();

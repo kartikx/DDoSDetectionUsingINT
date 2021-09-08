@@ -6,9 +6,11 @@ const bit<5> INT_OPTION_TYPE = 31;
 typedef bit<48> macAddr_t;
 typedef bit<32> ip4Addr_t;
 
-typedef bit<7> header_count_t;
+typedef bit<16> header_count_t;
 
-typedef bit<16> queue_depth_t;
+typedef bit<8> queue_depth_t;
+typedef bit<4> switch_id_t;
+typedef bit<16> queue_time_delta_t;
 
 header ethernet_t {
     macAddr_t dstAddr;
@@ -34,6 +36,7 @@ header ipv4_t {
 
 // This header goes right at the start of the variable part of the IPv4 Header.
 // It is followed by the INT headers, which logically form part of the options data.
+// 2 Bytes
 header ipv4_option_t {
     bit<1> copied;
     bit<2> class;
@@ -41,19 +44,20 @@ header ipv4_option_t {
     bit<8> length;
 }
 
+// Currently, INT_MD is used to indicate how many INT DATA headers follow.
+// This header may also be used to facilitate end to end communication between
+// source and sink. For eg. if you wish to support IPv4 Options on input packets.
 // 2 Bytes.
 header int_md_t {
-    // Remove these, if you decide to not support IPv4 Option packets.
-    bit<5> originalOptionValue;
-    bit<4> originalIhl;
-
     header_count_t countHeaders;
 }
 
 // 4 Bytes
 header int_data_t {
+    switch_id_t switchId;
+    bit<4> padding;
     queue_depth_t queueDepth;
-    bit<16> padding;
+    queue_time_delta_t queueTime;
 }
 
 /*
@@ -70,8 +74,8 @@ struct parser_metadata_t {
 
 struct switch_metadata_t {
     // Switch ID for this switch. Extracted from `switchInfo` table.
-    bit<4> switchId;
-    
+    switch_id_t switchId;
+
     // The INT Role {Source, Transit, Sink} for this Switch. Extracted from `switchInfo` table.
     bit<2> switchINTRole;
 }

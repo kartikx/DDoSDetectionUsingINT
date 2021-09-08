@@ -1,12 +1,16 @@
 from scapy.all import sniff, Packet
 from scapy.fields import (
     ShortField,
-    IntField,
-    FieldListField,
     ByteField,
     PacketListField,
     BitField,
 )
+
+"""
+Represents each INT Data.
+
+! This will require changes every time you modify headers.p4
+"""
 
 
 class INTData(Packet):
@@ -18,9 +22,11 @@ class INTData(Packet):
         ShortField("queueTime", 0),
     ]
 
+    # Since there exist multiple INTData packets in sequence, this is
     # Required to prevent downstream data from being treated as payload.
     def extract_padding(self, s):
-        return '', s
+        return "", s
+
 
 """
 Represents the INT Metadata Header along with the variable length
@@ -45,35 +51,44 @@ Extracts INT data from the bytes sniffed on the wire.
 """
 
 
-def parseINTPacket(pkt):
+def parse_INT_packet(pkt):
     print("Received a packet")
     # print(str(pkt));
 
     pkt.show2()
 
-    # INT is stored as an embedded IP Option.
-    intBytes = pkt["IP"]["IP Option"].getfieldval("value")
+    # On the wire, INT is stored as an embedded IP Option.
+    INTLayerBytes = pkt["IP"]["IP Option"].getfieldval("value")
 
-    print(intBytes)
+    # print(INTLayerBytes)
 
-    # Convert the Raw IP Option into an INT object.
-    intPkt = INTLayer(intBytes)
+    # Convert the Raw IP Option into an INT Layer.
+    INTPkt = INTLayer(INTLayerBytes)
 
-    intPkt.show()
+    INTPkt.show()
 
-    for data in intPkt.getfieldval("intData"):
-        dataPkt = INTData(data)
-        print(dataPkt.getfieldval("switchId"), dataPkt.getfieldval("queueDepth"), dataPkt.getfieldval("queueTime"))
+    # Store each INT Data packet in the layer in the Database.
+    for INTData in INTPkt.getfieldval("intData"):
+        INTDataPkt = INTData(INTData)
+        print(
+            INTDataPkt.getfieldval("switchId"),
+            INTDataPkt.getfieldval("queueDepth"),
+            INTDataPkt.getfieldval("queueTime"),
+        )
+        # TODO store in DB.
 
-    # TODO store in DB.
+def init_database():
+    pass
 
+def add_INT_data():
+    pass
 
 def main():
     # Sniff packets on CPU Port of Sink Switch.
     iface = "s3-eth3"
     print(f"Sniffing packets on: {iface}")
 
-    sniff(iface=iface, prn=lambda x: parseINTPacket(x))
+    sniff(iface=iface, prn=lambda x: parse_INT_packet(x))
 
 
 if __name__ == "__main__":

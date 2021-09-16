@@ -1,16 +1,7 @@
+from constants import Options
 import argparse
 from datetime import datetime
-from os import path, times
-
-class ArgumentValues:
-    # Interface to Sniff packets on.
-    iface = ""
-    # Source Switch name.
-    source = ""
-    # Sink Switch name.
-    sink = ""
-    # TimeDelta between Sink and Source startup times. (Sink > Source).
-    sourceSinkTimeDelta = ""
+from os import path
 
 # Returns the Time at which the switch was started.
 def getStartupTime(switch):
@@ -32,7 +23,7 @@ def setTimeDifference(source, sink):
     sourceStartTime = getStartupTime(source)
     sinkStartTime = getStartupTime(sink)
     
-    ArgumentValues.sourceSinkTimeDelta = sinkStartTime - sourceStartTime
+    Options.sourceSinkTimeDelta = sinkStartTime - sourceStartTime
 
 def parseCommandLine():
     parser = argparse.ArgumentParser()
@@ -40,12 +31,13 @@ def parseCommandLine():
     # Add arguments to the Parser.
     parser.add_argument("-i", "--interface",
                         help="Interface to sniff packets on", required="true")
-    parser.add_argument("--source", help="Source Switch name", required="true")
-    parser.add_argument("--sink", help="Sink Switch name", required="true")
+    parser.add_argument("-s", "--source", help="Source Switch name", required="true")
+    parser.add_argument("-S", "--sink", help="Sink Switch name", required="true")
 
     # Parse actual args from the CLI
     args = parser.parse_args()
 
-    ArgumentValues.iface = args.interface
-    ArgumentValues.source = args.source
-    ArgumentValues.sink = args.sink
+    # Set the passed parameter values, to be used throughout the program.
+    Options.iface = args.interface
+    Options.source = args.source
+    Options.sink = args.sink

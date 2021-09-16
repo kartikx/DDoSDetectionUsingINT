@@ -1,10 +1,11 @@
 from sniff import sniffPackets
-from parser import parseCommandLine, setTimeDifference
+from utils import parseCommandLine, setTimeDifference
+from constants import Options
 
 # Sniff packets on CPU Port of Sink Switch.
 def main():
     parseCommandLine()
-    setTimeDifference("s1", "s3")
+    setTimeDifference(Options.source, Options.sink)
     sniffPackets()
 
 if __name__ == "__main__":

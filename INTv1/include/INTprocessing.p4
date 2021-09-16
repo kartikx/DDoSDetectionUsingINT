@@ -64,12 +64,12 @@ control SourceSwitchProcessing(inout headers hdr,
             // Indicates to future nodes that this is an INT Option.
             hdr.ipv4_option.option = INT_OPTION_TYPE;
             // 2 Byte Option Field + 2 Byte INT_MD + 4 Byte INT Data.
-            hdr.ipv4_option.length = 8; 
+            hdr.ipv4_option.length = 2 + INT_MD_Header_Size + INT_DATA_Size;
 
             // Increase IHL length. 1 word for {Option + INT_MD} and 1 for {INT_DATA}. 
-            hdr.ipv4.ihl = hdr.ipv4.ihl + 2;
-            // Increase the IPv4 header total length.
-            hdr.ipv4.totalLen = hdr.ipv4.totalLen + 8;
+            hdr.ipv4.ihl = hdr.ipv4.ihl + 1 + (bit<4>)(INT_DATA_Size >> 2);
+            // Increase the IPv4 header total length by adding the newly created option.
+            hdr.ipv4.totalLen = hdr.ipv4.totalLen + 2 + (bit<16>)INT_MD_Header_Size + (bit<16>)INT_DATA_Size;
 
             // Set the INT_MD Header valid, and set the count.
             hdr.int_md.setValid();
@@ -77,11 +77,14 @@ control SourceSwitchProcessing(inout headers hdr,
 
             // Set the first INT_DATA header valid, and set the data values.
             hdr.int_data[0].setValid();
-            hdr.int_data[0].switchId   = (switch_id_t)        meta.switch_metadata.switchId;
-            hdr.int_data[0].queueDepth = (queue_depth_t)      standard_metadata.deq_qdepth;
-            hdr.int_data[0].queueTime  = (queue_time_delta_t) standard_metadata.deq_timedelta;
+            hdr.int_data[0].switchId     = (switch_id_t)           meta.switch_metadata.switchId;
+            hdr.int_data[0].queueDepth   = (queue_depth_t)         standard_metadata.deq_qdepth;
+            hdr.int_data[0].queueTime    = (queue_time_delta_t)    standard_metadata.deq_timedelta;
+            hdr.int_data[0].ingressTime  = (ingress_global_time_t) standard_metadata.ingress_global_timestamp;
 
-            log_msg("Switch: {}, Depth: {}, Time: {}", {hdr.int_data[0].switchId, hdr.int_data[0].queueDepth, hdr.int_data[0].queueTime});
+            log_msg("Switch: {}, Enq Depth: {}, QTime: {}, ITime: {}", {hdr.int_data[0].switchId, hdr.int_data[0].queueDepth, hdr.int_data[0].queueTime, hdr.int_data[0].ingressTime});
+            // log_msg("Enq: {}, Ingress Global: {}, Egress Global: {} TimeDelta: {}", {standard_metadata.enq_timestamp, standard_metadata.ingress_global_timestamp, standard_metadata.egress_global_timestamp, standard_metadata.deq_timedelta});
+
         }
     }
 }
@@ -122,19 +125,22 @@ control TransitSwitchProcessing(inout headers hdr,
         }
 
         // Adding a new option word, increment appropriate values.
-        hdr.ipv4_option.length = hdr.ipv4_option.length + 4; 
-        hdr.ipv4.ihl = hdr.ipv4.ihl + 1;
-        hdr.ipv4.totalLen = hdr.ipv4.totalLen + 4;
+        hdr.ipv4_option.length = hdr.ipv4_option.length + INT_DATA_Size; 
+        hdr.ipv4.ihl = hdr.ipv4.ihl + (bit<4>)(INT_DATA_Size >> 2);
+        hdr.ipv4.totalLen = hdr.ipv4.totalLen + (bit<16>)INT_DATA_Size;
 
         // Can safely index into array.
         hdr.int_data[numHeaders].setValid();
-        hdr.int_data[numHeaders].switchId   = (switch_id_t)        meta.switch_metadata.switchId;
-        hdr.int_data[numHeaders].queueDepth = (queue_depth_t)      standard_metadata.deq_qdepth;
-        hdr.int_data[numHeaders].queueTime  = (queue_time_delta_t) standard_metadata.deq_timedelta;
+        hdr.int_data[numHeaders].switchId     = (switch_id_t)           meta.switch_metadata.switchId;
+        hdr.int_data[numHeaders].queueDepth   = (queue_depth_t)         standard_metadata.enq_qdepth;
+        hdr.int_data[numHeaders].queueTime    = (queue_time_delta_t)    standard_metadata.deq_timedelta;
+        hdr.int_data[numHeaders].ingressTime  = (ingress_global_time_t) standard_metadata.ingress_global_timestamp;
 
         hdr.int_md.countHeaders = numHeaders + 1;
 
-        log_msg("Switch: {}, Depth: {}, Time: {}", {hdr.int_data[numHeaders].switchId, hdr.int_data[numHeaders].queueDepth,hdr.int_data[numHeaders].queueTime});
+        log_msg("Switch: {}, Enq Depth: {}, QTime: {}, ITime: {}", {hdr.int_data[numHeaders].switchId, hdr.int_data[numHeaders].queueDepth, hdr.int_data[numHeaders].queueTime, hdr.int_data[numHeaders].ingressTime});
+
+        // log_msg("Enq: {}, Ingress Global: {}, Egress Global: {} TimeDelta: {}", {standard_metadata.enq_timestamp, standard_metadata.ingress_global_timestamp, standard_metadata.egress_global_timestamp, standard_metadata.deq_timedelta});
     }
 }
 

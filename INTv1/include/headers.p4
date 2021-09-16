@@ -8,9 +8,10 @@ typedef bit<32> ip4Addr_t;
 
 typedef bit<16> header_count_t;
 
-typedef bit<8> queue_depth_t;
 typedef bit<4> switch_id_t;
+typedef bit<12> queue_depth_t;
 typedef bit<16> queue_time_delta_t;
+typedef bit<32> ingress_global_time_t;
 
 header ethernet_t {
     macAddr_t dstAddr;
@@ -52,12 +53,16 @@ header int_md_t {
     header_count_t countHeaders;
 }
 
-// 4 Bytes
+// 8 Bytes
 header int_data_t {
+    // 0.5B
     switch_id_t switchId;
-    bit<4> padding;
+    // 1.5B
     queue_depth_t queueDepth;
+    // 2B
     queue_time_delta_t queueTime;
+    // 4B
+    ingress_global_time_t ingressTime;
 }
 
 /*

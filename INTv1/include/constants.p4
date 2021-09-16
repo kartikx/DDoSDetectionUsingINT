@@ -25,3 +25,14 @@ const bit<9> INTSourceEgressPort = 2;
 const bit<9> INTTransitEgressPort = 2;
 
 const bit<32> SinkSessionID = 100;
+
+/**
+  * The following constants are used to appropriately modify IPv4
+  * Option length and IHL whenever INT Metadata is added to it.
+  * Whenever you modify the Metadata headers you should modify
+  * these constants as well.
+*/
+
+const bit<8> INT_MD_Header_Size = 2;
+
+const bit<8> INT_DATA_Size = 8;

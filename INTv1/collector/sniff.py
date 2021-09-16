@@ -1,15 +1,20 @@
+"""
+Responsible for Sniffing Packets on the Interface.
+"""
+
 from scapy.all import sniff, Packet
 from scapy.fields import (
     ShortField,
-    ByteField,
+    IntField,
     PacketListField,
     BitField,
 )
+from parser import ArgumentValues
 
 """
 Represents each INT Data.
 
-! This will require changes every time you modify headers.p4
+! This will require changes every time you modify int_data changes
 """
 
 
@@ -17,9 +22,9 @@ class INTData(Packet):
     name = "INT Data"
     fields_desc = [
         BitField("switchId", 0, 4),
-        BitField("padding", 0, 4),
-        ByteField("queueDepth", 0),
+        BitField("queueDepth", 0, 12),
         ShortField("queueTime", 0),
+        IntField("ingressTime", 0)
     ]
 
     # Since there exist multiple INTData packets in sequence, this is
@@ -32,7 +37,7 @@ class INTData(Packet):
 Represents the INT Metadata Header along with the variable length
 INT data.
 
-! This class will need changes every time headers.p4 changes. 
+! This class will need changes every time int_md changes. 
 """
 
 
@@ -68,28 +73,25 @@ def parse_INT_packet(pkt):
     INTPkt.show()
 
     # Store each INT Data packet in the layer in the Database.
-    for INTData in INTPkt.getfieldval("intData"):
-        INTDataPkt = INTData(INTData)
+    for data in INTPkt.getfieldval("intData"):
+        INTDataPkt = INTData(data)
         print(
             INTDataPkt.getfieldval("switchId"),
             INTDataPkt.getfieldval("queueDepth"),
             INTDataPkt.getfieldval("queueTime"),
+            INTDataPkt.getfieldval("ingressTime"),
         )
         # TODO store in DB.
+
 
 def init_database():
     pass
 
+
 def add_INT_data():
     pass
 
-def main():
-    # Sniff packets on CPU Port of Sink Switch.
-    iface = "s3-eth3"
-    print(f"Sniffing packets on: {iface}")
-
-    sniff(iface=iface, prn=lambda x: parse_INT_packet(x))
-
-
-if __name__ == "__main__":
-    main()
+def sniffPackets():
+    print(f"Sniffing packets on: {ArgumentValues.iface}")
+    # sniff(iface=ArgumentValues.iface, prn=lambda x: parse_INT_packet(x))
+    sniff(iface="s3-eth3", prn=lambda x: parse_INT_packet(x))

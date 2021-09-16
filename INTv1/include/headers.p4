@@ -48,12 +48,17 @@ header ipv4_option_t {
 // Currently, INT_MD is used to indicate how many INT DATA headers follow.
 // This header may also be used to facilitate end to end communication between
 // source and sink. For eg. if you wish to support IPv4 Options on input packets.
-// 2 Bytes.
+// 10 Bytes.
 header int_md_t {
+    // Number of INT_DATA Headers that follow. 2B
     header_count_t countHeaders;
+    // Timestamp when INT Header was inserted. 4B
+    ingress_global_time_t sourceIngressTime;
+    // Timestamp when INT Header was removed. 4B
+    ingress_global_time_t sinkIngressTime;
 }
 
-// 8 Bytes
+// 4 Bytes
 header int_data_t {
     // 0.5B
     switch_id_t switchId;
@@ -61,8 +66,6 @@ header int_data_t {
     queue_depth_t queueDepth;
     // 2B
     queue_time_delta_t queueTime;
-    // 4B
-    ingress_global_time_t ingressTime;
 }
 
 /*
@@ -85,9 +88,15 @@ struct switch_metadata_t {
     bit<2> switchINTRole;
 }
 
+// Stores information about the packet cloned at the Sink.
+struct sink_metadata_t {
+    ingress_global_time_t ingress_global_timestamp;
+}
+
 struct metadata {
     parser_metadata_t parser_metadata;
     switch_metadata_t switch_metadata;
+    sink_metadata_t sink_metadata;
 }
 
 struct headers {

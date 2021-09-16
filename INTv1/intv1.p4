@@ -74,6 +74,7 @@ control MyIngress(inout headers hdr,
 
         // On the Sink Switch, we clone INT packets towards Collector.
         if (meta.switch_metadata.switchINTRole == INTRole.Sink && hdr.int_md.isValid()) {
+            meta.sink_metadata.ingress_global_timestamp = (ingress_global_time_t) standard_metadata.ingress_global_timestamp;
             clone3(CloneType.I2E, SinkSessionID, meta);
         }
     }

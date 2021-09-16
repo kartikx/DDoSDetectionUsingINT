@@ -33,6 +33,6 @@ const bit<32> SinkSessionID = 100;
   * these constants as well.
 */
 
-const bit<8> INT_MD_Header_Size = 2;
+const bit<8> INT_MD_Header_Size = 10;
 
-const bit<8> INT_DATA_Size = 8;
+const bit<8> INT_DATA_Size = 4;

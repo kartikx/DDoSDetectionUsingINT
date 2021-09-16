@@ -42,15 +42,9 @@ control SourceSwitchProcessing(inout headers hdr,
         Set the IPv4 Options to indicate that there are INT Headers present in the packet.
         This allows transit nodes to expect INT Headers and parse them appropriately.
 
-        TODO: Read into applications of IPV4Option to see if I need to set length of options etc.
-        because I don't need that from my implementation pov.
-        Hence, I would only need to cache the option type.
-
         TODO: Allow packets with already existing IPv4Options header to flow into source?
         See if this would be a necessity, or whether I can get by with packets not having any.
         */
-
-        // Currently, dropping packets sent with IPv4 Options. TODO.
         if (hdr.ipv4_option.isValid()) {
             log_msg("[ERROR] Source encountered existing IPv4 Options, dropping.");
             mark_to_drop(standard_metadata);
@@ -63,28 +57,26 @@ control SourceSwitchProcessing(inout headers hdr,
             hdr.ipv4_option.class  = 2;
             // Indicates to future nodes that this is an INT Option.
             hdr.ipv4_option.option = INT_OPTION_TYPE;
-            // 2 Byte Option Field + 2 Byte INT_MD + 4 Byte INT Data.
+            // 2 Byte Option Field + INT_MD + INT Data.
             hdr.ipv4_option.length = 2 + INT_MD_Header_Size + INT_DATA_Size;
 
             // Increase IHL length. 1 word for {Option + INT_MD} and 1 for {INT_DATA}. 
-            hdr.ipv4.ihl = hdr.ipv4.ihl + 1 + (bit<4>)(INT_DATA_Size >> 2);
+            hdr.ipv4.ihl = hdr.ipv4.ihl + (bit<4>)((2 + INT_MD_Header_Size)>>2) + (bit<4>)(INT_DATA_Size >> 2);
             // Increase the IPv4 header total length by adding the newly created option.
             hdr.ipv4.totalLen = hdr.ipv4.totalLen + 2 + (bit<16>)INT_MD_Header_Size + (bit<16>)INT_DATA_Size;
 
-            // Set the INT_MD Header valid, and set the count.
+            // Set the INT_MD Header valid, and set the count and sourceIngressTime.
             hdr.int_md.setValid();
             hdr.int_md.countHeaders = 1;
+            hdr.int_md.sourceIngressTime = (ingress_global_time_t) standard_metadata.ingress_global_timestamp;
 
             // Set the first INT_DATA header valid, and set the data values.
             hdr.int_data[0].setValid();
             hdr.int_data[0].switchId     = (switch_id_t)           meta.switch_metadata.switchId;
             hdr.int_data[0].queueDepth   = (queue_depth_t)         standard_metadata.deq_qdepth;
             hdr.int_data[0].queueTime    = (queue_time_delta_t)    standard_metadata.deq_timedelta;
-            hdr.int_data[0].ingressTime  = (ingress_global_time_t) standard_metadata.ingress_global_timestamp;
 
-            log_msg("Switch: {}, Enq Depth: {}, QTime: {}, ITime: {}", {hdr.int_data[0].switchId, hdr.int_data[0].queueDepth, hdr.int_data[0].queueTime, hdr.int_data[0].ingressTime});
-            // log_msg("Enq: {}, Ingress Global: {}, Egress Global: {} TimeDelta: {}", {standard_metadata.enq_timestamp, standard_metadata.ingress_global_timestamp, standard_metadata.egress_global_timestamp, standard_metadata.deq_timedelta});
-
+            log_msg("Switch: {}, Enq Depth: {}, QTime: {}, SourceITime: {}", {hdr.int_data[0].switchId, hdr.int_data[0].queueDepth, hdr.int_data[0].queueTime, hdr.int_md.sourceIngressTime});
         }
     }
 }
@@ -131,23 +123,21 @@ control TransitSwitchProcessing(inout headers hdr,
 
         // Can safely index into array.
         hdr.int_data[numHeaders].setValid();
-        hdr.int_data[numHeaders].switchId     = (switch_id_t)           meta.switch_metadata.switchId;
-        hdr.int_data[numHeaders].queueDepth   = (queue_depth_t)         standard_metadata.enq_qdepth;
-        hdr.int_data[numHeaders].queueTime    = (queue_time_delta_t)    standard_metadata.deq_timedelta;
-        hdr.int_data[numHeaders].ingressTime  = (ingress_global_time_t) standard_metadata.ingress_global_timestamp;
+        hdr.int_data[numHeaders].switchId   = (switch_id_t)           meta.switch_metadata.switchId;
+        hdr.int_data[numHeaders].queueDepth = (queue_depth_t)         standard_metadata.enq_qdepth;
+        hdr.int_data[numHeaders].queueTime  = (queue_time_delta_t)    standard_metadata.deq_timedelta;
 
         hdr.int_md.countHeaders = numHeaders + 1;
 
-        log_msg("Switch: {}, Enq Depth: {}, QTime: {}, ITime: {}", {hdr.int_data[numHeaders].switchId, hdr.int_data[numHeaders].queueDepth, hdr.int_data[numHeaders].queueTime, hdr.int_data[numHeaders].ingressTime});
-
-        // log_msg("Enq: {}, Ingress Global: {}, Egress Global: {} TimeDelta: {}", {standard_metadata.enq_timestamp, standard_metadata.ingress_global_timestamp, standard_metadata.egress_global_timestamp, standard_metadata.deq_timedelta});
+        log_msg("Switch: {}, Enq Depth: {}, QTime: {}", {hdr.int_data[numHeaders].switchId, hdr.int_data[numHeaders].queueDepth, hdr.int_data[numHeaders].queueTime});
     }
 }
 
 /*
-For now, I will skip the clone parts. Sink is required to just
-restore IPv4 Options and invalidate the INT_MD.
-*/
+ * Sink Switch deals with cloned and normal packets.
+ * This method deals with normal packet processing. It is required to restore the packet to as it was
+ * before INT addition.
+ */
 control SinkSwitchProcessing(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
@@ -161,6 +151,7 @@ control SinkSwitchProcessing(inout headers hdr,
         header_count_t numHeaders = hdr.int_md.countHeaders; 
 
         log_msg("Num headers: {}", {numHeaders});
+        log_msg("Normal Packet Ingress Time: {}", {standard_metadata.ingress_global_timestamp});
 
         // TODO: If you decide to support IPv4 Options, this restoration should be performed
         // By consulting INT_MD data.
@@ -168,7 +159,7 @@ control SinkSwitchProcessing(inout headers hdr,
         hdr.ipv4.ihl = 5;
         // We have increment both totalLen and optionLen by the same amounts,
         // and option length started from 0 (assuming no ipv4_option to begin with).
-        hdr.ipv4.totalLen = hdr.ipv4.totalLen -  (bit<16>)hdr.ipv4_option.length; 
+        hdr.ipv4.totalLen = hdr.ipv4.totalLen -  (bit<16>)hdr.ipv4_option.length;
 
         hdr.ipv4_option.setInvalid();
         hdr.int_md.setInvalid();
@@ -189,10 +180,7 @@ control SinkSwitchCloneProcessing(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
     apply {
-        // Currently pass the entire processed packet as it is.
-        
-        // hdr.ethernet.setInvalid();
-        // hdr.ipv4.setInvalid();
-        // hdr.ipv4_option.setInvalid();
+        hdr.int_md.sinkIngressTime = (ingress_global_time_t) meta.sink_metadata.ingress_global_timestamp;
+        log_msg("Clone Packet Ingress Time: {}", {hdr.int_md.sinkIngressTime});
     }
 }

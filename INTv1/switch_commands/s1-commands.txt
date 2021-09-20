@@ -1,0 +1,8 @@
+# SwitchInfo allows switches to get Information about themselves.
+# We use 0 as the fixed key, followed by {SwitchID} {INTRole}
+# INTRole is one of Source(0), Transit(1) and Sink(2).
+table_add SwitchInfo populateSwitchInfo 0 => 1 0
+table_add ipv4forwarding forward 10.0.0.1 => 1
+table_add ipv4forwarding forward 10.0.0.2 => 2
+table_add ipv4forwarding forward 10.0.0.3 => 3
+table_add ipv4forwarding forward 10.0.0.4 => 2

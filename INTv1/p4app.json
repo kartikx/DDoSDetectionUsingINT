@@ -35,6 +35,10 @@
                 "s2"
             ],
             [
+                "h3",
+                "s1"
+            ],
+            [
                 "s2",
                 "s3"
             ],
@@ -45,21 +49,27 @@
             [
                 "s3",
                 "s4"
+            ],
+            [
+                "h4",
+                "s3"
             ]
         ],
         "hosts": {
             "h1": {},
-            "h2": {}
+            "h2": {},
+            "h3": {},
+            "h4": {}
         },
         "switches": {
             "s1": {
-                "cli_input": "s1-commands.txt"
+                "cli_input": "switch_commands/s1-commands.txt"
             },
             "s2": {
-                "cli_input": "s2-commands.txt"
+                "cli_input": "switch_commands/s2-commands.txt"
             },
             "s3": {
-                "cli_input": "s3-commands.txt"
+                "cli_input": "switch_commands/s3-commands.txt"
             },
             "s4": {}
         }

@@ -31,13 +31,6 @@ control SourceSwitchProcessing(inout headers hdr,
             return;
         }
 
-        // Don't conduct telemetry for paths that wouldn't reach the sink.
-        // TODO replace this with a constant.
-        // TODO add this to the transit node as well.
-        if (standard_metadata.egress_port != INTSourceEgressPort) {
-            return;
-        }
-
         /*
         Set the IPv4 Options to indicate that there are INT Headers present in the packet.
         This allows transit nodes to expect INT Headers and parse them appropriately.

@@ -24,6 +24,9 @@ const bit<9> INTSourceEgressPort = 2;
   */
 const bit<9> INTTransitEgressPort = 2;
 
+const bit<9> INTSinkIngressPort = 1;
+
+
 const bit<32> SinkSessionID = 100;
 
 /**

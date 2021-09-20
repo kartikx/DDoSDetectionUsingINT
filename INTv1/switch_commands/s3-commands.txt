@@ -1,0 +1,8 @@
+table_add SwitchInfo populateSwitchInfo 0 => 3 2
+table_add ipv4forwarding forward 10.0.0.1 => 1
+table_add ipv4forwarding forward 10.0.0.2 => 2
+table_add ipv4forwarding forward 10.0.0.3 => 1
+table_add ipv4forwarding forward 10.0.0.4 => 4
+
+# Add mirroring id to forward the cloned packet.
+mirroring_add 100 3

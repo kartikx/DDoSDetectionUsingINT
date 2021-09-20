@@ -97,17 +97,22 @@ control MyEgress(inout headers hdr,
             // Normal newly arrived packet.
             if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_NORMAL) {
                 /**
-                    * Information about the Switch INT Role is already stored into metadata on Ingress.
-                    * We use it here to delegate responsibility to the correct processing subroutine.
-                    */
+                  * Information about the Switch INT Role is already stored into metadata on Ingress.
+                  * We use it here to delegate responsibility to the correct processing subroutine.
+                  * We invoke the processing functions only if the packet is being forwarded along the 
+                  * INT Route.
+                  */
                 log_msg("Switch ID: {}, SwitchRole: {}", {meta.switch_metadata.switchId, meta.switch_metadata.switchINTRole});
-                if (meta.switch_metadata.switchINTRole == INTRole.Source) {
+
+                if (meta.switch_metadata.switchINTRole == INTRole.Source && standard_metadata.egress_port == INTSourceEgressPort) {
                     sourceProcessingInstance.apply(hdr, meta, standard_metadata);
                 }
-                else if (meta.switch_metadata.switchINTRole == INTRole.Transit) {
+                else if (meta.switch_metadata.switchINTRole == INTRole.Transit && standard_metadata.egress_port == INTTransitEgressPort) {
                     transitProcessingInstance.apply(hdr, meta, standard_metadata);
                 }
-                else if (meta.switch_metadata.switchINTRole == INTRole.Sink) {
+                // Since Sink might be connected to multiple hosts, we check that the packet received
+                // Is not destined towards Transit switches (which is only a single switch, hence fixed).
+                else if (meta.switch_metadata.switchINTRole == INTRole.Sink && standard_metadata.egress_port != INTSinkIngressPort) {
                     sinkProcessingInstance.apply(hdr, meta, standard_metadata);
                 } else {
                     // Switch not involved in INT.

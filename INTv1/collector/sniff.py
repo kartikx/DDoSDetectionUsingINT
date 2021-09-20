@@ -9,8 +9,9 @@ from scapy.fields import (
     PacketListField,
     BitField,
 )
-from constants import Options, flowTableIntervalTime
+from constants import Options, FlowConstants
 from datetime import datetime, timedelta
+from database import addFlowEntry
 
 flowTable = {}
 
@@ -56,7 +57,7 @@ class INTLayer(Packet):
 
 
 class FlowTableEntry:
-    def __init__(self, flowEntry, INTPkt, pkt):
+    def __init__(self, flowEntry, INTPkt, pkt, flowTableKey):
         # This is the first entry.
         if flowEntry is None:
             # TODO Use pkt for this.
@@ -94,6 +95,10 @@ class FlowTableEntry:
         # Stores the timestamp of the most recent entry.
         # Used to check staleness of flow entry.
         self.lastEntry = datetime.now()
+
+        # Stores the key that is used to index this flow into the Flow Table.
+        # Stored in the Database, to allow flow based querying.
+        self.flowTableKey = flowTableKey
 
         INTDataArray = INTPkt.getfieldval("intData")
         length = len(INTDataArray)
@@ -181,24 +186,24 @@ def parse_INT_packet(pkt):
         print(f"Existing entry with timestamp {flowEntry.lastEntry}")
         currTime = datetime.now()
 
-        if (currTime - flowEntry.lastEntry).seconds > flowTableIntervalTime:
+        if (currTime - flowEntry.lastEntry).seconds > FlowConstants.flowTableIntervalTime:
             print("Stale entry")
 
             # Insert Stale Entry into Database.
-            addFlowEntryDatabase(flowEntry)
+            addFlowEntry(flowEntry)
 
             # This packet now serves as the first packet of a new flow.
-            entry = FlowTableEntry(None, INTPkt, pkt)
+            entry = FlowTableEntry(None, INTPkt, pkt, flowTableKey)
         else:
             print("Fresh entry")
 
             # Packet gets aggregated into existing flow.
-            entry = FlowTableEntry(flowEntry, INTPkt, pkt)
+            entry = FlowTableEntry(flowEntry, INTPkt, pkt, flowTableKey)
     else:
         print("Adding new entry")
 
         # First packet of a new flow.
-        entry = FlowTableEntry(None, INTPkt, pkt)
+        entry = FlowTableEntry(None, INTPkt, pkt, flowTableKey)
 
     flowTable[flowTableKey] = entry
     # print(entry)
@@ -214,16 +219,6 @@ def printINTPacket(INTPkt):
             INTDataPkt.getfieldval("queueDepth"),
             INTDataPkt.getfieldval("queueTime"),
         )
-
-
-def init_database():
-    pass
-
-
-def addFlowEntryDatabase(flowEntry):
-    print("--Adding to Database----")
-    print(flowEntry)
-
 
 def sniffPackets():
     print(f"Sniffing packets on: {Options.iface}")

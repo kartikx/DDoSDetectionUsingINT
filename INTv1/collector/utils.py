@@ -6,7 +6,7 @@ from os import path
 # Returns the Time at which the switch was started.
 def getStartupTime(switch):
     # Switch log path name.
-    switchLogPath = path.join("log", switch+".log")
+    switchLogPath = path.join("log", switch + ".log")
 
     # print(f"Filename: {switchLogPath}")
 
@@ -19,18 +19,21 @@ def getStartupTime(switch):
     fmt = "%H:%M:%S.%f"
     return datetime.strptime(timeStamp, fmt)
 
+
 def setTimeDifference(source, sink):
     sourceStartTime = getStartupTime(source)
     sinkStartTime = getStartupTime(sink)
-    
+
     Options.sourceSinkTimeDelta = sinkStartTime - sourceStartTime
+
 
 def parseCommandLine():
     parser = argparse.ArgumentParser()
 
     # Add arguments to the Parser.
-    parser.add_argument("-i", "--interface",
-                        help="Interface to sniff packets on", required="true")
+    parser.add_argument(
+        "-i", "--interface", help="Interface to sniff packets on", required="true"
+    )
     parser.add_argument("-s", "--source", help="Source Switch name", required="true")
     parser.add_argument("-S", "--sink", help="Sink Switch name", required="true")
 

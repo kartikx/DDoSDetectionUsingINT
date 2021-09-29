@@ -1,9 +1,11 @@
-from constants import Options
+from constants import Options, TimeConstants
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from os import path
 
 # Returns the Time at which the switch was started.
+
+
 def getStartupTime(switch):
     # Switch log path name.
     switchLogPath = path.join("log", switch + ".log")
@@ -24,7 +26,9 @@ def setTimeDifference(source, sink):
     sourceStartTime = getStartupTime(source)
     sinkStartTime = getStartupTime(sink)
 
-    Options.sourceSinkTimeDelta = sinkStartTime - sourceStartTime
+    # ? Adding an extra second for safety.
+    Options.sourceSinkTimeDelta = sinkStartTime - sourceStartTime + \
+        timedelta(microseconds=TimeConstants.safetyTimeDelta)
 
 
 def parseCommandLine():
@@ -34,8 +38,11 @@ def parseCommandLine():
     parser.add_argument(
         "-i", "--interface", help="Interface to sniff packets on", required="true"
     )
-    parser.add_argument("-s", "--source", help="Source Switch name", required="true")
-    parser.add_argument("-S", "--sink", help="Sink Switch name", required="true")
+    parser.add_argument(
+        "-s", "--source", help="Source Switch name", required="true")
+    parser.add_argument(
+        "-S", "--sink", help="Sink Switch name", required="true")
+    # parser.add_argument("-t", "--time", help="Sink Source Time Delta", required="true")
 
     # Parse actual args from the CLI
     args = parser.parse_args()
@@ -44,3 +51,7 @@ def parseCommandLine():
     Options.iface = args.interface
     Options.source = args.source
     Options.sink = args.sink
+    # Assuming delta passed in as egress format.
+    # Options.sourceSinkTimeDelta = args.time
+
+    # print("Timedelta: ", args.time)

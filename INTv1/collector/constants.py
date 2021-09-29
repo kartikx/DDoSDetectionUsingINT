@@ -13,9 +13,13 @@ class Options:
     # TimeDelta between Sink and Source startup times. (Sink > Source).
     sourceSinkTimeDelta = ""
 
+class TimeConstants:
+    # Additional Safety Time (in uS) to prevent Negative Flow Latency.
+    safetyTimeDelta = 5000
+
 class FlowConstants:
     # Interval after which a Flow Table Entry is considered to be Stale.
-    flowTableIntervalTime = 4
+    flowTableIntervalTime = 2
 
 class DatabaseConstants:
     # Stores the InfluxDB client connection.

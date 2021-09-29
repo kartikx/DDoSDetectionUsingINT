@@ -173,7 +173,8 @@ control SinkSwitchCloneProcessing(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
     apply {
-        hdr.int_md.sinkIngressTime = (ingress_global_time_t) meta.sink_metadata.ingress_global_timestamp;
-        log_msg("Clone Packet Ingress Time: {}", {hdr.int_md.sinkIngressTime});
+        // hdr.int_md.sinkIngressTime = (ingress_global_time_t) meta.sink_metadata.ingress_global_timestamp;
+        hdr.int_md.sinkIngressTime = (ingress_global_time_t) standard_metadata.egress_global_timestamp;
+        log_msg("Clone Packet Egress Time: {}", {hdr.int_md.sinkIngressTime});
     }
 }

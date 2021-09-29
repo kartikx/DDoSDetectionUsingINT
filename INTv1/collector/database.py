@@ -38,9 +38,11 @@ def addFlowEntry(flowEntry):
                 "hopLatency": flowEntry.hopLatency,
                 "flowLatency": strfDelta(flowEntry.flowLatency),
                 "queueOccupancy": flowEntry.queueOccupancy,
-                "duration": strfDelta(now - flowEntry.duration)
+                "duration": strfDelta(flowEntry.lastEntry - flowEntry.firstEntry),
+                "numPackets": flowEntry.numPackets
             }
         }
     ]
 
     DatabaseConstants.client.write_points(tableEntry)
+    print("Written point")

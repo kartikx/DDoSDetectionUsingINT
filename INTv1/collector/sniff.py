@@ -10,7 +10,7 @@ from scapy.fields import (
     BitField,
 )
 from constants import Options, FlowConstants
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from database import addFlowEntry
 
 flowTable = {}
@@ -58,6 +58,8 @@ class INTLayer(Packet):
 
 class FlowTableEntry:
     def __init__(self, flowEntry, INTPkt, pkt, flowTableKey):
+        now = datetime.now()
+
         # This is the first entry.
         if flowEntry is None:
             # TODO Use pkt for this.
@@ -65,9 +67,9 @@ class FlowTableEntry:
 
             # Stores the timestamp of the first packet of this flow.
             # Finally, when the flow gets over, we can compute the time difference.
-            self.duration = datetime.now()
+            self.firstEntry = now
 
-            # hopL, fowL and qO store the current aggregated respective values for this flow.
+            # hopL, flowL and qO store the current aggregated respective values for this flow.
             # Since this packet is the first occurence of this flow, initialize all to 0.
             self.hopLatency = 0
             self.flowLatency = timedelta(seconds=0)
@@ -81,7 +83,7 @@ class FlowTableEntry:
             self.protocol = flowEntry.protocol
 
             # Timestamp of Flow initialization is copied over from existing flow.
-            self.duration = flowEntry.duration
+            self.firstEntry = flowEntry.firstEntry
 
             # Initialize hopL, flowL and queueO to avg * numPackets.
             # These will be used to compute the new average.
@@ -94,7 +96,7 @@ class FlowTableEntry:
 
         # Stores the timestamp of the most recent entry.
         # Used to check staleness of flow entry.
-        self.lastEntry = datetime.now()
+        self.lastEntry = now
 
         # Stores the key that is used to index this flow into the Flow Table.
         # Stored in the Database, to allow flow based querying.
@@ -105,10 +107,13 @@ class FlowTableEntry:
         # print(length)
 
         # Extract sink and source Ingress Time for the INT_MD Header.
-        sinkTime = str(INTPkt.getfieldval("sinkIngressTime"))
         sourceTime = str(INTPkt.getfieldval("sourceIngressTime"))
+        sinkTime = str(INTPkt.getfieldval("sinkIngressTime"))
+
+        print(f"Source: {sourceTime}, Sink: {sinkTime}")
 
         # Flow Latency is computed as the Time Difference from Source to Sink.
+        # ! This calculation is yielding occasional errors.
         flowLatency = (
             timedelta(seconds=int(sinkTime[:-6]),
                       microseconds=int(sinkTime[-6:]))
@@ -116,6 +121,21 @@ class FlowTableEntry:
             - timedelta(seconds=int(sourceTime[:-6]),
                         microseconds=int(sourceTime[-6:]))
         )
+
+        # flowLatency = (
+        #     timedelta(seconds=int(float(sinkTime[:-6])),
+        #               microseconds=int(float(sinkTime[-6:])))
+        #     + timedelta(seconds=int(float(Options.sourceSinkTimeDelta[:-6])),
+        #                 microseconds=int(float(Options.sourceSinkTimeDelta[-6:])))
+        #     - timedelta(seconds=int(float(sourceTime[:-6])),
+        #                 microseconds=int(float(sourceTime[-6:])))
+        # )
+
+        if flowLatency < timedelta(seconds=0):
+            print("Obtained negative timedelta")
+            print(
+                f"Flow Latency: {flowLatency}, TimeDelta: {Options.sourceSinkTimeDelta}")
+            exit(1)
 
         # Values for this current packet, will be aggregated into existing flow (if exists).
         hopLatency, queueOccupancy = 0, 0
@@ -148,11 +168,27 @@ class FlowTableEntry:
 
 
 # Returns the Flow Table index key for this packet.
-# TODO Currently only using IP, since not sending TCP level packets.
-
 
 def getFlowKey(pkt):
-    return pkt["IP"].getfieldval("src") + ":" + pkt["IP"].getfieldval("dst")
+    flowKey = pkt["IP"].getfieldval("src") + ":" + pkt["IP"].getfieldval("dst")
+
+    proto = pkt["IP"].getfieldval("proto")
+
+    # TCP
+    if proto == 6:
+        # print("TCP")
+        flowKey = flowKey + ":" + \
+            str(pkt["TCP"].getfieldval("sport")) + ":" + \
+            str(pkt["TCP"].getfieldval("dport"))
+    # UDP
+    elif proto == 17:
+        # print("UDP")
+        flowKey = flowKey + ":" + \
+            str(pkt["UDP"].getfieldval("sport")) + ":" + \
+            str(pkt["UDP"].getfieldval("dport"))
+
+    # print(flowKey)
+    return flowKey
 
 
 """
@@ -167,6 +203,7 @@ def parse_INT_packet(pkt):
     # pkt.show2()
 
     flowTableKey = getFlowKey(pkt)
+    print(flowTableKey)
 
     # On the wire, INT is stored as an embedded IP Option.
     INTLayerBytes = pkt["IP"]["IP Option"].getfieldval("value")
@@ -176,14 +213,14 @@ def parse_INT_packet(pkt):
     # Convert the Raw IP Option into an INT Layer.
     INTPkt = INTLayer(INTLayerBytes)
 
-    INTPkt.show()
+    # INTPkt.show()
 
     global flowTable
 
     flowEntry = flowTable.get(flowTableKey)
 
     if flowEntry:
-        print(f"Existing entry with timestamp {flowEntry.lastEntry}")
+        # print(f"Existing entry with timestamp {flowEntry.lastEntry}")
         currTime = datetime.now()
 
         if (currTime - flowEntry.lastEntry).seconds > FlowConstants.flowTableIntervalTime:
@@ -200,7 +237,7 @@ def parse_INT_packet(pkt):
             # Packet gets aggregated into existing flow.
             entry = FlowTableEntry(flowEntry, INTPkt, pkt, flowTableKey)
     else:
-        print("Adding new entry")
+        # print("Adding new entry")
 
         # First packet of a new flow.
         entry = FlowTableEntry(None, INTPkt, pkt, flowTableKey)
@@ -219,6 +256,12 @@ def printINTPacket(INTPkt):
             INTDataPkt.getfieldval("queueDepth"),
             INTDataPkt.getfieldval("queueTime"),
         )
+
+
+def flushFlows():
+    for _, flowEntry in flowTable.items():
+        addFlowEntry(flowEntry)
+
 
 def sniffPackets():
     print(f"Sniffing packets on: {Options.iface}")

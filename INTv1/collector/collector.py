@@ -7,10 +7,9 @@ import signal
 def handler(signum, frame):
     print("Flushing leftover flows to Database")
     flushFlows()
-    exit(1)
+    print("Flushed leftover flows to Database")
 
-signal.signal(signal.SIGINT, handler)
-
+signal.signal(signal.SIGTSTP, handler)
 
 def initCollector():
     # Each router reports timestamps relative to the time at which they
@@ -28,6 +27,7 @@ def main():
 
     initCollector()
 
+    print("Sniffing Packets, Press Ctrl+Z to flush flows and Ctrl+C to stop")
     sniffPackets()
 
 if __name__ == "__main__":

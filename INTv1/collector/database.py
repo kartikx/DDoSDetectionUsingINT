@@ -45,4 +45,4 @@ def addFlowEntry(flowEntry):
     ]
 
     DatabaseConstants.client.write_points(tableEntry)
-    print("Written point")
+    # print("Written point")

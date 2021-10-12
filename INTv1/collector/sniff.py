@@ -12,6 +12,7 @@ from scapy.fields import (
 from constants import Options, FlowConstants
 from datetime import datetime, time, timedelta
 from database import addFlowEntry
+from time import sleep
 
 flowTable = {}
 
@@ -114,22 +115,21 @@ class FlowTableEntry:
 
         # Flow Latency is computed as the Time Difference from Source to Sink.
         # ! This calculation is yielding occasional errors.
-        flowLatency = (
-            timedelta(seconds=int(sinkTime[:-6]),
-                      microseconds=int(sinkTime[-6:]))
-            + Options.sourceSinkTimeDelta
-            - timedelta(seconds=int(sourceTime[:-6]),
-                        microseconds=int(sourceTime[-6:]))
-        )
-
         # flowLatency = (
-        #     timedelta(seconds=int(float(sinkTime[:-6])),
-        #               microseconds=int(float(sinkTime[-6:])))
-        #     + timedelta(seconds=int(float(Options.sourceSinkTimeDelta[:-6])),
-        #                 microseconds=int(float(Options.sourceSinkTimeDelta[-6:])))
-        #     - timedelta(seconds=int(float(sourceTime[:-6])),
-        #                 microseconds=int(float(sourceTime[-6:])))
+        #     timedelta(seconds=int(sinkTime[:-6]),
+        #               microseconds=int(sinkTime[-6:]))
+        #     + Options.sourceSinkTimeDelta
+        #     - timedelta(seconds=int(sourceTime[:-6]),
+        #                 microseconds=int(sourceTime[-6:]))
         # )
+
+        flowLatency = (
+            timedelta(seconds=int(float(sinkTime[:-6])),
+                      microseconds=int(float(sinkTime[-6:])))
+            + Options.sourceSinkTimeDelta
+            - timedelta(seconds=int(float(sourceTime[:-6])),
+                        microseconds=int(float(sourceTime[-6:])))
+        )
 
         if flowLatency < timedelta(seconds=0):
             print("Obtained negative timedelta")
@@ -197,7 +197,6 @@ Extracts INT data from the bytes sniffed on the wire.
 
 
 def parse_INT_packet(pkt):
-    print("Received a packet")
     # print(str(pkt));
 
     # pkt.show2()
@@ -223,7 +222,12 @@ def parse_INT_packet(pkt):
         # print(f"Existing entry with timestamp {flowEntry.lastEntry}")
         currTime = datetime.now()
 
-        if (currTime - flowEntry.lastEntry).seconds > FlowConstants.flowTableIntervalTime:
+        # To check stale flows, we check the duration of the flow,
+        # If it exceeds the threshold, it is stale.
+        # Earlier I had been using flowEntry.lastEntry, which would allow
+        # flows much larger than IntervalTime, if new packets kept arriving within
+        # the threshold.
+        if (currTime - flowEntry.firstEntry).seconds >= FlowConstants.flowTableIntervalTime:
             print("Stale entry")
 
             # Insert Stale Entry into Database.

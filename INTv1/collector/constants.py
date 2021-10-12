@@ -15,7 +15,7 @@ class Options:
 
 class TimeConstants:
     # Additional Safety Time (in uS) to prevent Negative Flow Latency.
-    safetyTimeDelta = 5000
+    safetyTimeDelta = 500000
 
 class FlowConstants:
     # Interval after which a Flow Table Entry is considered to be Stale.

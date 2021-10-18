@@ -36,9 +36,9 @@ def addFlowEntry(flowEntry):
             "fields": {
                 "protocol": flowEntry.protocol,
                 "hopLatency": flowEntry.hopLatency,
-                "flowLatency": strfDelta(flowEntry.flowLatency),
+                "flowLatency": float(strfDelta(flowEntry.flowLatency)),
                 "queueOccupancy": flowEntry.queueOccupancy,
-                "duration": strfDelta(flowEntry.lastEntry - flowEntry.firstEntry),
+                "duration": float(strfDelta(flowEntry.lastEntry - flowEntry.firstEntry)),
                 "numPackets": flowEntry.numPackets
             }
         }

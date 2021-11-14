@@ -1,3 +1,8 @@
+"""
+Collects data InfluxDB and stores it as
+Serialized Python Files for the ML Model to use. 
+"""
+
 from influxdb import InfluxDBClient
 import numpy as np
 import pandas as pd
@@ -10,18 +15,15 @@ abnormalIP = "69"
 class Constants:
     NormalID = 0
     AbnormalID = 1
-    ArrayLen = 5
+    ArrayLen = 4
 
 
 class Parameters:
     HopLatencyScale = 1000
     QueueOccupancyScale = 10
     TrainSplit = 0.9
-    AbnormalFlowLimit = 200
-
-# Notes
-# ! Why do I have a 1.977 duration Abnormal Flow.
-
+    NormalFlowLimit = 500
+    AbnormalFlowLimit = 100
 
 def collectData():
     client = InfluxDBClient(host='localhost', port=8086)
@@ -37,7 +39,7 @@ def collectData():
     # ? Implement Scaling, check using different values.
     for point in normalPoints:
         normalFlows = np.append(normalFlows, [[float(point["duration"]), float(
-            point["flowLatency"]), point["hopLatency"]/Parameters.HopLatencyScale, point["numPackets"], point["queueOccupancy"]/Parameters.QueueOccupancyScale]], axis=0)
+            point["flowLatency"]), point["hopLatency"]/Parameters.HopLatencyScale, point["queueOccupancy"]/Parameters.QueueOccupancyScale]], axis=0)
 
     # print(len(normalFlows), normalFlows[0])
 
@@ -56,7 +58,7 @@ def collectData():
     # ? Implement Scaling, check using different values.
     for point in abnormalPoints:
         abnormalFlows = np.append(abnormalFlows, [[float(point["duration"]), float(
-            point["flowLatency"]), point["hopLatency"]/Parameters.HopLatencyScale, point["numPackets"], point["queueOccupancy"]/Parameters.QueueOccupancyScale]], axis=0)
+            point["flowLatency"]), point["hopLatency"]/Parameters.HopLatencyScale, point["queueOccupancy"]/Parameters.QueueOccupancyScale]], axis=0)
 
     # print(len(abnormalFlows), abnormalFlows[0])
 
@@ -65,16 +67,16 @@ def collectData():
     # print(df["Duration"].max(), df["Duration"].min())
 
     # Arrays are currently sorted by time, shuffle it.
-    # np.random.shuffle(normalFlows)
-    # np.random.shuffle(abnormalFlows)
+    np.random.shuffle(normalFlows)
+    np.random.shuffle(abnormalFlows)
 
-    # ? Scale size of Normal and Abnormal Flows.
-    # ? Currently Abnormal Flows are way greater.
-    # ! I could also do this in the Query?
+    # Scale size of Normal and Abnormal Flows.
+    # Currently Abnormal Flows are way greater.
+    normalFlows = normalFlows[:Parameters.NormalFlowLimit]
     abnormalFlows = abnormalFlows[:Parameters.AbnormalFlowLimit]
 
     # print(len(normalFlows), len(abnormalFlows))
-    # Return the x_train, x_test.
+    # The split index marks the partition between test and train data.
     splitNormal, splitAbnormal = int(len(
         normalFlows)*Parameters.TrainSplit), int(len(abnormalFlows)*Parameters.TrainSplit)
 
@@ -108,10 +110,12 @@ def collectData():
 def main():
     (x_train, y_train), (x_test, y_test) = collectData()
 
+    # Shuffle train data, but do it identically for x and y.
     train_shuffler = np.random.permutation(len(x_train))
     x_train = x_train[train_shuffler]
     y_train = y_train[train_shuffler]
 
+    # Shuffle test data, but do it identically for x and y.
     test_shuffler = np.random.permutation(len(x_test))
     x_test = x_test[test_shuffler]
     y_test = y_test[test_shuffler]
@@ -121,16 +125,17 @@ def main():
     #     if y_test[i] != x_test[i][0]:
     #         print("oops")
 
-    with open("x_train_data", "wb") as f:
+    # Serialize data into pickle files.
+    with open("x_train_data_1", "wb") as f:
         pickle.dump(x_train, f)
 
-    with open("y_train_data", "wb") as f:
+    with open("y_train_data_1", "wb") as f:
         pickle.dump(y_train, f)
 
-    with open("x_test_data", "wb") as f:
+    with open("x_test_data_1", "wb") as f:
         pickle.dump(x_test, f)
 
-    with open("y_test_data", "wb") as f:
+    with open("y_test_data_1", "wb") as f:
         pickle.dump(y_test, f)
 
 if __name__ == '__main__':

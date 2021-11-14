@@ -8,7 +8,7 @@ hping3 -q -c 30 -i u50000 --keep 10.0.0.6
 echo "Attack"
 # Transmits between 500 - 1500 packets.
 # The number of flows for some reason is smaller.
-timeout 0.073 hping3 -S --flood -p 80 --spoof 69.0.0.1 10.0.0.2 &
+# timeout 0.073 hping3 -S --flood -p 80 --spoof 69.0.0.1 10.0.0.2 &
 
 echo "Quick 1"
 hping3 -q -c 15 -i u1000 --keep 10.0.0.2

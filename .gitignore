@@ -4,10 +4,12 @@ pcap
 *.p4i
 intv1.json
 *.md
-*.txt
 ECN/
 Papers/
 Notes/
 MiniNet/
 .vscode
 topology.json
+monitoring/
+__pycache__/
+data

@@ -202,7 +202,8 @@ def parse_INT_packet(pkt):
     # pkt.show2()
 
     flowTableKey = getFlowKey(pkt)
-    print(flowTableKey)
+    if Options.verbose:
+        print("\n\nFlowkey: ", flowTableKey)
 
     # On the wire, INT is stored as an embedded IP Option.
     INTLayerBytes = pkt["IP"]["IP Option"].getfieldval("value")
@@ -211,6 +212,9 @@ def parse_INT_packet(pkt):
 
     # Convert the Raw IP Option into an INT Layer.
     INTPkt = INTLayer(INTLayerBytes)
+
+    if Options.verbose:
+        printINTPacket(INTPkt)
 
     # INTPkt.show()
 
@@ -228,7 +232,8 @@ def parse_INT_packet(pkt):
         # flows much larger than IntervalTime, if new packets kept arriving within
         # the threshold.
         if (currTime - flowEntry.firstEntry).seconds >= FlowConstants.flowTableIntervalTime:
-            print("Stale entry")
+            if Options.verbose:
+                print("Existing flow entry in table is stale.")
 
             # Insert Stale Entry into Database.
             addFlowEntry(flowEntry)
@@ -236,36 +241,49 @@ def parse_INT_packet(pkt):
             # This packet now serves as the first packet of a new flow.
             entry = FlowTableEntry(None, INTPkt, pkt, flowTableKey)
         else:
-            print("Fresh entry")
+            if Options.verbose:
+                print("Existing flow entry in table is fresh.")
 
             # Packet gets aggregated into existing flow.
             entry = FlowTableEntry(flowEntry, INTPkt, pkt, flowTableKey)
     else:
-        # print("Adding new entry")
+        if Options.verbose:        
+            print("First entry for this flow.")
 
         # First packet of a new flow.
         entry = FlowTableEntry(None, INTPkt, pkt, flowTableKey)
 
     flowTable[flowTableKey] = entry
-    # print(entry)
 
+    if Options.verbose:
+        print("Added entry: ", entry)
 
 def printINTPacket(INTPkt):
-    print(len(INTPkt.getfieldval("intData")))
+    print("Received a Packet")
+    print("-------------------------------------------")
+    print("Source Ingress Time: ", INTPkt.getfieldval("sourceIngressTime"))
+    print("Sink Ingress Time: ", INTPkt.getfieldval("sinkIngressTime"))
+
+    # print(len(INTPkt.getfieldval("intData")))
     # Store each INT Data packet in the layer in the Database.
     for data in INTPkt.getfieldval("intData"):
+        print("\t--------")
         INTDataPkt = INTData(data)
         print(
-            INTDataPkt.getfieldval("switchId"),
-            INTDataPkt.getfieldval("queueDepth"),
-            INTDataPkt.getfieldval("queueTime"),
+            "\tSwitch ID: ", INTDataPkt.getfieldval("switchId"),
+            "\n\tQueue Depth: ", INTDataPkt.getfieldval("queueDepth"),
+            "\n\tQueue Time: ", INTDataPkt.getfieldval("queueTime"),
         )
 
+    print("-------------------------------------------")
 
 def flushFlows():
+    print("Number of entries: ", len(flowTable))
+  
     for _, flowEntry in flowTable.items():
         addFlowEntry(flowEntry)
 
+    flowTable.clear()    
 
 def sniffPackets():
     print(f"Sniffing packets on: {Options.iface}")

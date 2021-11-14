@@ -47,7 +47,7 @@ hping3 -q -c 15 -i u15000 --keep 10.0.0.2
 sleep 2
 
 echo "Attack"
-timeout 0.073 hping3 -q -S --flood -p 80 --spoof 69.0.0.3 10.0.0.4 &
+# timeout 0.073 hping3 -q -S --flood -p 80 --spoof 69.0.0.3 10.0.0.4 &
 
 echo "Long 4"
 hping3 -q -c 60 -i u150000 --keep 10.0.0.4

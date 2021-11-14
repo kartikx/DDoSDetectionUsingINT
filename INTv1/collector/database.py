@@ -4,10 +4,12 @@ Responsible for Flow Entry Database operations
 
 from influxdb import InfluxDBClient
 from datetime import datetime
-from constants import DatabaseConstants
+from constants import DatabaseConstants, Options
+
 
 def strfDelta(tdelta):
     return str(tdelta.seconds) + "." + str(tdelta.microseconds)
+
 
 def initDatabase():
 
@@ -16,19 +18,32 @@ def initDatabase():
     databaseObject = {'name': DatabaseConstants.databaseName}
     # If Database does not already exist, create database.
     if databaseObject not in DatabaseConstants.client.get_list_database():
-        DatabaseConstants.client.create_database(DatabaseConstants.databaseName)
+        print("Didn't find existing database, creating a new one")
+        DatabaseConstants.client.create_database(
+            DatabaseConstants.databaseName)
 
     # Make client operate on this database.
     DatabaseConstants.client.switch_database(DatabaseConstants.databaseName)
 
+
 def addFlowEntry(flowEntry):
     now = datetime.now()
+
+    if Options.useNewDatabase:
+        tableName = DatabaseConstants.tableName + \
+            str(now.day) + str(now.month) + \
+            str(now.hour) + str(now.minute)
+    else:
+        tableName = DatabaseConstants.tableName
+
+    if Options.verbose:
+        print("Table Name: ", tableName)
 
     # print(flowEntry)
     # Convert flowEntry to JSON Format to be inserted.
     tableEntry = [
         {
-            "measurement": DatabaseConstants.tableName,
+            "measurement": tableName,
             "tags": {
                 "flowKey": flowEntry.flowTableKey
             },

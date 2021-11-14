@@ -12,8 +12,6 @@ TODOs
 6. Operations like Ping won't work because INT doesn't work bidirectionally, I need to be sure that traffic flows in one way only, because if source adds the header then hosts might not be able to understand it. !!! I think it might be a good idea to use IPv4Options properly after all, if you can set the entire INT headers + data such that it appears like an option, then maybe hosts might ignore it all !!!.
 
 8. Read into Checksums and fix it.
-9. Move out processing control functions into separate file. (DOING)
-10. Reduce metadata size. (DONE)
 11. Remove transit/sink node drop on not finding INT_MD, this leads to reverse flows being dropped completely.
 12. INT A Survey, mentions that INT Header should be 8+8+8 (Control Header + Seq Number + Bitmap).
 
@@ -35,3 +33,7 @@ Questions to ask:
 
 Question to clarify with Sir:
 1. Is my approach of handling reverse flow issues correct?
+
+Things to keep track of when Topology Changes
+1. Forwarding Tables will change.
+2. Collector sniff port will change.

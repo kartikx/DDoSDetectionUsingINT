@@ -12,6 +12,10 @@ class Options:
     sink = ""
     # TimeDelta between Sink and Source startup times. (Sink > Source).
     sourceSinkTimeDelta = ""
+    # Indicates whether to use a new database for this run (Test runs)
+    useNewDatabase = ""
+    # Indicates whether to print messages for events.
+    verbose = ""
 
 class TimeConstants:
     # Additional Safety Time (in uS) to prevent Negative Flow Latency.

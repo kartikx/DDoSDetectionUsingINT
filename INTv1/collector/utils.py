@@ -43,6 +43,8 @@ def parseCommandLine():
     parser.add_argument(
         "-S", "--sink", help="Sink Switch name", required="true")
     # parser.add_argument("-t", "--time", help="Sink Source Time Delta", required="true")
+    parser.add_argument("--new", help="Use new Database", action="store_true")
+    parser.add_argument("-v", "--verbose", help="Print useful output for each event", action="store_true")
 
     # Parse actual args from the CLI
     args = parser.parse_args()
@@ -51,6 +53,8 @@ def parseCommandLine():
     Options.iface = args.interface
     Options.source = args.source
     Options.sink = args.sink
+    Options.useNewDatabase = args.new
+    Options.verbose=args.verbose
     # Assuming delta passed in as egress format.
     # Options.sourceSinkTimeDelta = args.time
 

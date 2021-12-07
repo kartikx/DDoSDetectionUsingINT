@@ -16,6 +16,8 @@ class Options:
     useNewDatabase = ""
     # Indicates whether to print messages for events.
     verbose = ""
+    # Indicates whether Collector is running in predict mode.
+    predict = ""
 
 class TimeConstants:
     # Additional Safety Time (in uS) to prevent Negative Flow Latency.
@@ -32,3 +34,14 @@ class DatabaseConstants:
     databaseName = "flowDatabase"
 
     tableName = "flowTable"
+
+class ModelConstants:
+    AnomalyThreshold = 0.8
+
+    # First subaddress of Spoofed Anomalous IP, meant to check whether predicted
+    # Anomaly is really an Anomaly.
+    AnomalyIP = "69"
+
+class TestingConstants:
+    correctPredictionsCount = 0
+    totalPredictionsCount = 0

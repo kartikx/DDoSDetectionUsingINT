@@ -5,7 +5,7 @@ Responsible for Flow Entry Database operations
 from influxdb import InfluxDBClient
 from datetime import datetime
 from constants import DatabaseConstants, Options
-
+from predictor import predictFlow
 
 def strfDelta(tdelta):
     return str(tdelta.seconds) + "." + str(tdelta.microseconds)
@@ -27,6 +27,13 @@ def initDatabase():
 
 
 def addFlowEntry(flowEntry):
+    # Not operating in Data Gathering mode.
+    # Make the prediction and return.
+    if Options.predict:
+        if Options.verbose:
+            print("Calling prediction")
+        return predictFlow(flowEntry)
+
     now = datetime.now()
 
     if Options.useNewDatabase:

@@ -12,6 +12,8 @@ Possible errors:
 control SourceSwitchProcessing(inout headers hdr,
                 inout metadata meta,
                 inout standard_metadata_t standard_metadata) {
+    register<bit<8>>(1) count;
+
     apply {
         log_msg("Source");
 
@@ -30,6 +32,37 @@ control SourceSwitchProcessing(inout headers hdr,
             mark_to_drop(standard_metadata);
             return;
         }
+
+        // Check if Overhead needs to be minimized.  
+        if (minimizeOverhead == 1) {
+            @atomic {
+                bit<8> val;
+                count.read(val, (bit<32>)0);
+
+                log_msg("Counter value: {}", {val});
+
+                // See if we should conduct telemetry on this packet.
+                if (val == (bit<8>) 0) {
+                    meta.int_metadata.addINT = 1;
+                } else {
+                    meta.int_metadata.addINT = 0;
+                }
+
+                // Increment count.
+                if (val == rateLimit) {
+                    count.write((bit<32>)0, 0);
+                } else {
+                    count.write((bit<32>)0, val+1);
+                }
+
+                // Don't perform INT on this flow.
+                if (meta.int_metadata.addINT == 0) {
+                    return;
+                }
+            }
+        }
+
+
 
         /*
         Set the IPv4 Options to indicate that there are INT Headers present in the packet.
@@ -94,10 +127,10 @@ control TransitSwitchProcessing(inout headers hdr,
             return;
         }
 
-        // Transit node expects an INT_MD header. Drop packet if not found.
+        // If no INT_MD header, don't perform INT.
         if (!hdr.int_md.isValid()) {
-            log_msg("[ERROR] Transit couldn't find INT_MD Header");
-            mark_to_drop(standard_metadata);
+            log_msg("[NOTE] Transit couldn't find INT_MD Header, returning");
+            // mark_to_drop(standard_metadata);
             return;
         }
 
@@ -137,8 +170,13 @@ control SinkSwitchProcessing(inout headers hdr,
     apply {
         log_msg("Sink");
 
+        if (!hdr.ipv4.isValid()) {
+            log_msg("[NOTE] Sink received non IPv4 packet, returning.");
+            return;
+        }
+
         if (!hdr.int_md.isValid()) {
-            log_msg("[ERROR] Sink node couldn't find INT_MD Header");
+            log_msg("[NOTE] Sink node couldn't find INT_MD Header, returning.");
             return;
         }
         header_count_t numHeaders = hdr.int_md.countHeaders; 

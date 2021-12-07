@@ -39,3 +39,9 @@ const bit<32> SinkSessionID = 100;
 const bit<8> INT_MD_Header_Size = 10;
 
 const bit<8> INT_DATA_Size = 4;
+
+// Boolean to control whether to minimize overhead.
+const bit<1> minimizeOverhead = 1;
+
+// Rate for INT (Number - 1)
+const bit<8> rateLimit = 3;

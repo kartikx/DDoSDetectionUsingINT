@@ -93,10 +93,15 @@ struct sink_metadata_t {
     ingress_global_time_t ingress_global_timestamp;
 }
 
+struct int_metadata_t {
+    bit<1> addINT;
+}
+
 struct metadata {
     parser_metadata_t parser_metadata;
     switch_metadata_t switch_metadata;
     sink_metadata_t sink_metadata;
+    int_metadata_t int_metadata;
 }
 
 struct headers {

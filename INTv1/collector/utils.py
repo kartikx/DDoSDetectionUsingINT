@@ -45,6 +45,9 @@ def parseCommandLine():
     # parser.add_argument("-t", "--time", help="Sink Source Time Delta", required="true")
     parser.add_argument("--new", help="Use new Database", action="store_true")
     parser.add_argument("-v", "--verbose", help="Print useful output for each event", action="store_true")
+    
+    parser.add_argument("-p", "--predict", help="Run collector in prediction mode", action="store_true")
+    parser.add_argument("-t", "--testing", help="Run collector to test accuracy of predictions, make sure --predict is also on", action="store_true")
 
     # Parse actual args from the CLI
     args = parser.parse_args()
@@ -55,6 +58,9 @@ def parseCommandLine():
     Options.sink = args.sink
     Options.useNewDatabase = args.new
     Options.verbose=args.verbose
+    Options.predict=args.predict
+    Options.testing=args.testing
+
     # Assuming delta passed in as egress format.
     # Options.sourceSinkTimeDelta = args.time
 

@@ -111,7 +111,8 @@ class FlowTableEntry:
         sourceTime = str(INTPkt.getfieldval("sourceIngressTime"))
         sinkTime = str(INTPkt.getfieldval("sinkIngressTime"))
 
-        print(f"Source: {sourceTime}, Sink: {sinkTime}")
+        if Options.verbose:
+            print(f"Source: {sourceTime}, Sink: {sinkTime}")
 
         # Flow Latency is computed as the Time Difference from Source to Sink.
         # ! This calculation is yielding occasional errors.
@@ -197,6 +198,9 @@ Extracts INT data from the bytes sniffed on the wire.
 
 
 def parse_INT_packet(pkt):
+    if Options.verbose:
+        print("Parsing packet")
+
     # print(str(pkt));
 
     # pkt.show2()
